@@ -1,1 +1,690 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>问OEE · 工业语音助手</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
 
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #0f172a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      padding: 12px;
+    }
+
+    /* 设备卡片式容器，模拟工业平板 */
+    .chat-container {
+      width: 100%;
+      max-width: 480px;
+      height: 85vh;
+      max-height: 750px;
+      background: #1e293b;
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      border: 1px solid #334155;
+    }
+
+    /* 头部 */
+    .chat-header {
+      background: #0f172a;
+      padding: 16px 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      border-bottom: 1px solid #334155;
+      flex-shrink: 0;
+    }
+
+    .header-icon {
+      width: 42px;
+      height: 42px;
+      background: #3b82f6;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      color: white;
+      box-shadow: 0 4px 10px rgba(59, 130, 246, 0.4);
+    }
+
+    .header-text h2 {
+      font-size: 18px;
+      color: #f1f5f9;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    .header-text span {
+      font-size: 12px;
+      color: #94a3b8;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #10b981;
+      border-radius: 50%;
+      display: inline-block;
+      box-shadow: 0 0 6px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    /* 消息区域 */
+    .chat-messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      background: #1e293b;
+      scroll-behavior: smooth;
+    }
+
+    .message {
+      display: flex;
+      flex-direction: column;
+      max-width: 85%;
+      animation: fadeInUp 0.25s ease-out;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .message.user {
+      align-self: flex-end;
+      align-items: flex-end;
+    }
+
+    .message.assistant {
+      align-self: flex-start;
+      align-items: flex-start;
+    }
+
+    .message-bubble {
+      padding: 12px 16px;
+      border-radius: 20px;
+      font-size: 15px;
+      line-height: 1.5;
+      word-break: break-word;
+      position: relative;
+    }
+
+    .user .message-bubble {
+      background: #2563eb;
+      color: #ffffff;
+      border-bottom-right-radius: 4px;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.3);
+    }
+
+    .assistant .message-bubble {
+      background: #334155;
+      color: #f1f5f9;
+      border-bottom-left-radius: 4px;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+      border: 1px solid #475569;
+    }
+
+    .message-time {
+      font-size: 10px;
+      color: #64748b;
+      margin-top: 4px;
+      padding: 0 4px;
+    }
+
+    /* 思考动画 */
+    .thinking-dots {
+      display: flex;
+      gap: 4px;
+      padding: 8px 0;
+    }
+
+    .thinking-dots span {
+      width: 8px;
+      height: 8px;
+      background: #94a3b8;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .thinking-dots span:nth-child(1) { animation-delay: -0.32s; }
+    .thinking-dots span:nth-child(2) { animation-delay: -0.16s; }
+    .thinking-dots span:nth-child(3) { animation-delay: 0s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0.6); }
+      40% { transform: scale(1); }
+    }
+
+    /* 输入区域 */
+    .chat-input-area {
+      padding: 12px 16px;
+      background: #0f172a;
+      border-top: 1px solid #334155;
+      display: flex;
+      align-items: flex-end;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    .input-wrapper {
+      flex: 1;
+      background: #1e293b;
+      border-radius: 24px;
+      border: 1px solid #475569;
+      display: flex;
+      align-items: flex-end;
+      padding: 6px 8px 6px 18px;
+      transition: border 0.2s;
+    }
+
+    .input-wrapper:focus-within {
+      border-color: #3b82f6;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+    }
+
+    #userInput {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: #f1f5f9;
+      font-size: 15px;
+      resize: none;
+      max-height: 100px;
+      line-height: 1.4;
+      padding: 6px 0;
+      font-family: inherit;
+    }
+
+    #userInput::placeholder {
+      color: #64748b;
+    }
+
+    .action-buttons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 4px;
+    }
+
+    .circle-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      border: none;
+      background: #1e293b;
+      color: #cbd5e1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      font-size: 20px;
+      flex-shrink: 0;
+      border: 1px solid #475569;
+      backdrop-filter: blur(4px);
+    }
+
+    .circle-btn:hover {
+      background: #334155;
+      color: white;
+    }
+
+    .circle-btn.send-btn {
+      background: #2563eb;
+      color: white;
+      border: none;
+      box-shadow: 0 4px 10px rgba(37, 99, 235, 0.5);
+    }
+
+    .circle-btn.send-btn:hover {
+      background: #1d4ed8;
+    }
+
+    .circle-btn.voice-btn {
+      font-size: 22px;
+    }
+
+    .circle-btn.voice-btn.listening {
+      background: #dc2626;
+      color: white;
+      border-color: #dc2626;
+      animation: pulse-red 1.2s infinite;
+      box-shadow: 0 0 15px #dc2626;
+    }
+
+    @keyframes pulse-red {
+      0% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.7); }
+      70% { box-shadow: 0 0 0 12px rgba(220, 38, 38, 0); }
+      100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0); }
+    }
+
+    .mic-tooltip {
+      font-size: 12px;
+      color: #94a3b8;
+      margin-top: 2px;
+      text-align: center;
+    }
+
+    /* 提示信息 */
+    .error-message {
+      background: #7f1d1d;
+      color: #fca5a5;
+      padding: 8px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin: 0 12px 6px;
+      text-align: center;
+    }
+
+    /* 移动端优化 */
+    @media (max-width: 480px) {
+      .chat-container {
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="chat-container">
+    <!-- 头部 -->
+    <div class="chat-header">
+      <div class="header-icon">📊</div>
+      <div class="header-text">
+        <h2>问OEE · 工业助手</h2>
+        <span><span class="status-dot"></span> 实时连接 · 设备数据就绪</span>
+      </div>
+    </div>
+
+    <!-- 消息列表 -->
+    <div class="chat-messages" id="chatMessages">
+      <div class="message assistant">
+        <div class="message-bubble">
+          👋 你好，我是生产数据分析助手。<br>你可以直接问我设备OEE、停机原因或产量情况。<br>试试说：<b>“CNC-01昨天白班的OEE是多少？”</b>
+        </div>
+        <div class="message-time">刚刚</div>
+      </div>
+    </div>
+
+    <!-- 错误提示区 -->
+    <div id="errorArea"></div>
+
+    <!-- 底部输入 -->
+    <div class="chat-input-area">
+      <div class="input-wrapper">
+        <textarea id="userInput" rows="1" placeholder="输入问题或点击麦克风语音..."></textarea>
+        <div class="action-buttons">
+          <!-- 语音按钮 -->
+          <button class="circle-btn voice-btn" id="voiceBtn" title="语音输入">🎤</button>
+          <!-- 发送按钮 -->
+          <button class="circle-btn send-btn" id="sendBtn" title="发送">➤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      // ---------- DOM元素 ----------
+      const messagesContainer = document.getElementById('chatMessages');
+      const userInput = document.getElementById('userInput');
+      const sendBtn = document.getElementById('sendBtn');
+      const voiceBtn = document.getElementById('voiceBtn');
+      const errorArea = document.getElementById('errorArea');
+
+      // ---------- 状态变量 ----------
+      let isListening = false;
+      let recognition = null;
+      // 标记是否正在等待后端回复
+      let waitingForResponse = false;
+
+      // ---------- 初始化语音识别 ----------
+      function initSpeechRecognition() {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognition) {
+          voiceBtn.style.display = 'none';
+          showError('当前浏览器不支持语音识别，请使用Chrome或Edge最新版。');
+          return null;
+        }
+
+        const recog = new SpeechRecognition();
+        recog.continuous = false;       // 单次识别，说完自动停止
+        recog.interimResults = true;    // 显示中间结果
+        recog.lang = 'zh-CN';           // 中文普通话
+
+        recog.onstart = () => {
+          isListening = true;
+          voiceBtn.classList.add('listening');
+          voiceBtn.title = '正在聆听...点击停止';
+          // 清除之前可能存在的错误
+          clearError();
+        };
+
+        recog.onresult = (event) => {
+          let interimTranscript = '';
+          let finalTranscript = '';
+
+          for (let i = event.resultIndex; i < event.results.length; i++) {
+            const transcript = event.results[i][0].transcript;
+            if (event.results[i].isFinal) {
+              finalTranscript += transcript;
+            } else {
+              interimTranscript += transcript;
+            }
+          }
+
+          // 实时更新输入框（显示中间结果+最终结果）
+          if (finalTranscript) {
+            userInput.value = finalTranscript;
+          } else if (interimTranscript) {
+            userInput.value = interimTranscript;
+          }
+        };
+
+        recog.onerror = (event) => {
+          console.error('语音识别错误:', event.error);
+          stopListening();
+
+          switch(event.error) {
+            case 'not-allowed':
+              showError('麦克风权限被拒绝，请在浏览器设置中允许麦克风访问。');
+              break;
+            case 'no-speech':
+              showError('没有检测到语音，请靠近麦克风再试。');
+              break;
+            case 'audio-capture':
+              showError('找不到麦克风设备，请检查连接。');
+              break;
+            case 'network':
+              showError('网络错误，语音识别需要联网。');
+              break;
+            default:
+              showError('语音识别出错，请重试。');
+          }
+        };
+
+        recog.onend = () => {
+          stopListening();
+          // 如果识别到了有效文本且不在等待回复中，自动发送
+          const text = userInput.value.trim();
+          if (text && !waitingForResponse && isListening === false) {
+            // 但这里需要防止重复发送：onend后会自动调用，我们延迟一点判断
+            setTimeout(() => {
+              if (userInput.value.trim() === text && !waitingForResponse) {
+                sendMessage();
+              }
+            }, 200);
+          }
+        };
+
+        return recog;
+      }
+
+      // 开始聆听
+      function startListening() {
+        if (waitingForResponse) {
+          showError('请等待当前问题回复完成后再提问。');
+          return;
+        }
+
+        if (!recognition) {
+          recognition = initSpeechRecognition();
+        }
+        if (!recognition) return;
+
+        try {
+          recognition.start();
+          // 清空输入框准备显示语音结果
+          userInput.value = '';
+          userInput.focus();
+        } catch (e) {
+          console.error('启动语音识别失败:', e);
+          stopListening();
+          showError('语音启动失败，请刷新页面后重试。');
+        }
+      }
+
+      // 停止聆听
+      function stopListening() {
+        if (recognition && isListening) {
+          try {
+            recognition.stop();
+          } catch (e) {}
+        }
+        isListening = false;
+        voiceBtn.classList.remove('listening');
+        voiceBtn.title = '语音输入';
+      }
+
+      // 切换语音状态
+      function toggleVoice() {
+        if (isListening) {
+          stopListening();
+        } else {
+          startListening();
+        }
+      }
+
+      // ---------- 消息处理 ----------
+      function addMessage(role, text, timestamp = new Date()) {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${role}`;
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.innerHTML = text.replace(/\n/g, '<br>');
+
+        const timeDiv = document.createElement('div');
+        timeDiv.className = 'message-time';
+        timeDiv.textContent = timestamp.toLocaleTimeString('zh-CN', { hour12: false });
+
+        messageDiv.appendChild(bubble);
+        messageDiv.appendChild(timeDiv);
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+      }
+
+      // 添加思考中动画（返回该消息元素以便后续替换）
+      function addThinkingMessage() {
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'message assistant';
+        messageDiv.id = 'thinkingMessage';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'message-bubble';
+        bubble.innerHTML = '<div class="thinking-dots"><span></span><span></span><span></span></div>';
+
+        messageDiv.appendChild(bubble);
+        messagesContainer.appendChild(messageDiv);
+        scrollToBottom();
+        return messageDiv;
+      }
+
+      // 移除思考动画并添加正式回复
+      function replaceThinkingWithResponse(text) {
+        const thinkingEl = document.getElementById('thinkingMessage');
+        if (thinkingEl) {
+          thinkingEl.remove();
+        }
+        addMessage('assistant', text);
+      }
+
+      // 滚动到底部
+      function scrollToBottom() {
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+      }
+
+      // 显示错误（临时）
+      function showError(msg) {
+        clearError();
+        const errDiv = document.createElement('div');
+        errDiv.className = 'error-message';
+        errDiv.textContent = '⚠️ ' + msg;
+        errDiv.id = 'tempError';
+        errorArea.appendChild(errDiv);
+        // 5秒后自动消失
+        setTimeout(() => {
+          if (errDiv.parentNode) errDiv.remove();
+        }, 5000);
+      }
+
+      function clearError() {
+        const tempErr = document.getElementById('tempError');
+        if (tempErr) tempErr.remove();
+        errorArea.innerHTML = '';
+      }
+
+      // ---------- 发送消息（核心交互） ----------
+      async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        if (waitingForResponse) {
+          showError('正在处理上一条问题，请稍候...');
+          return;
+        }
+
+        // 添加用户消息
+        addMessage('user', text);
+        userInput.value = '';
+        // 自动调整输入框高度
+        userInput.style.height = 'auto';
+
+        // 添加思考动画
+        addThinkingMessage();
+        waitingForResponse = true;
+
+        try {
+          // ====================================================
+          // 🚀 这里替换成你的后端API调用
+          // 示例使用模拟延迟和回复，实际开发时替换 fetch 部分
+          // ====================================================
+          const mockResponse = await simulateBackendCall(text);
+          replaceThinkingWithResponse(mockResponse);
+        } catch (error) {
+          replaceThinkingWithResponse('❌ 抱歉，查询请求失败。请检查网络或联系管理员。<br>错误信息：' + error.message);
+        } finally {
+          waitingForResponse = false;
+          userInput.focus();
+        }
+      }
+
+      // 模拟后端调用（实际开发时删除此函数，换成真实API）
+      function simulateBackendCall(query) {
+        return new Promise((resolve) => {
+          const delay = 800 + Math.random() * 1200; // 模拟网络延迟
+          setTimeout(() => {
+            // 简单模拟一些OEE相关回答
+            if (query.includes('OEE') || query.includes('oee')) {
+              resolve(
+                '📊 根据查询结果：<br><br>' +
+                '<b>设备 CNC-01</b> 在 <b>昨天白班（08:00-20:00）</b>：<br>' +
+                '• 运行时间：9.5 小时<br>' +
+                '• 计划运行时间：12 小时<br>' +
+                '• 可用率：79.2%<br>' +
+                '• 性能率：88.5%<br>' +
+                '• 质量率：97.1%<br>' +
+                '• <b>OEE：68.1%</b><br><br>' +
+                '⚠️ 主要损失：换模等待耗时1.2小时，建议优化SMED流程。'
+              );
+            } else if (query.includes('停机') || query.includes('故障')) {
+              resolve(
+                '🔧 昨天白班 CNC-01 共发生 <b>3次非计划停机</b>：<br>' +
+                '1. 10:23 刀具破损 (持续22分钟)<br>' +
+                '2. 14:05 待料等待 (持续18分钟)<br>' +
+                '3. 16:41 主轴异常报警 (持续8分钟)<br><br>' +
+                '建议检查刀具寿命管理系统和物料配送流程。'
+              );
+            } else {
+              resolve(
+                '🤔 我目前主要擅长分析OEE、停机原因和产量问题。<br>' +
+                '你可以试试问我：<br>' +
+                '• “昨晚夜班哪台设备OEE最低？”<br>' +
+                '• “为什么昨天下午停机了半小时？”<br>' +
+                '• “本周产量最高的设备是哪台？”'
+              );
+            }
+          }, delay);
+        });
+      }
+
+      // ---------- 事件绑定 ----------
+      sendBtn.addEventListener('click', sendMessage);
+
+      // 回车发送，Shift+回车换行
+      userInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // 自动调整输入框高度
+      userInput.addEventListener('input', () => {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 100) + 'px';
+      });
+
+      // 语音按钮点击
+      voiceBtn.addEventListener('click', toggleVoice);
+
+      // 点击其他地方停止语音（可选）
+      document.addEventListener('click', (e) => {
+        if (isListening && !voiceBtn.contains(e.target) && e.target !== userInput) {
+          // 如果点击非语音按钮区域，不自动停止，让用户主动控制
+          // 但可以添加一个关闭逻辑，这里暂不处理
+        }
+      });
+
+      // 页面卸载时停止语音识别
+      window.addEventListener('beforeunload', () => {
+        if (recognition && isListening) {
+          recognition.stop();
+        }
+      });
+
+      // 初始化聚焦
+      userInput.focus();
+
+      // 初始检测语音支持
+      if (!(window.SpeechRecognition || window.webkitSpeechRecognition)) {
+        voiceBtn.style.display = 'none';
+        showError('当前浏览器不支持语音识别，请使用Chrome或Edge。');
+      }
+    })();
+  </script>
+</body>
+</html>
